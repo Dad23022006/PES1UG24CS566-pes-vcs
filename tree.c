@@ -205,5 +205,7 @@ static int write_tree_level(IndexEntry *entries, int count, int name_offset, Obj
     // Save that binary buffer to the store as OBJ_TREE
     int res = object_write(OBJ_TREE, tree_data, tree_len, out_id);
     free(tree_data);
+    
+    return res;
 
 }
