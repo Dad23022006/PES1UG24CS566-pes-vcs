@@ -117,7 +117,41 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
         return 0;
     }
 
-    return -1; // Temporary return
+// Step 4: Create shard directory (.pes/objects/XX/) if it doesn't exist
+    char hex[HASH_HEX_SIZE + 1];
+    hash_to_hex(id_out, hex);
+    char shard_dir[512];
+    snprintf(shard_dir, sizeof(shard_dir), "%s/%.2s", ".pes/objects", hex);
+    mkdir(shard_dir, 0755);
+
+    // Step 5: Write to a temporary file in the same shard directory
+    char temp_path[512];
+    snprintf(temp_path, sizeof(temp_path), "%s/tmp_XXXXXX", shard_dir);
+    int fd = mkstemp(temp_path);
+    if (fd < 0) { free(full_buffer); return -1; }
+
+    if (write(fd, full_buffer, full_size) != (ssize_t)full_size) {
+        close(fd); unlink(temp_path); free(full_buffer); return -1;
+    }
+
+    // Step 6: fsync() the temporary file to ensure data reaches disk
+    fsync(fd); 
+    close(fd);
+
+    // Step 7: rename() the temp file to the final path (atomic on POSIX)
+    // Step 9 is handled implicitly since compute_hash already stored the hash in *id_out
+    char final_path[512];
+    object_path(id_out, final_path, sizeof(final_path));
+    if (rename(temp_path, final_path) < 0) {
+        unlink(temp_path); free(full_buffer); return -1;
+    }
+
+    // Step 8: Open and fsync() the shard directory to persist the rename
+    int dir_fd = open(shard_dir, O_RDONLY);
+    if (dir_fd >= 0) { fsync(dir_fd); close(dir_fd); }
+
+    free(full_buffer);
+    return 0;
 }
 
 // Read an object from the store.
