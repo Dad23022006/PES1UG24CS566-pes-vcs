@@ -218,5 +218,12 @@ int commit_create(const char *message, ObjectID *commit_id_out) {
         fprintf(stderr, "error: failed to serialize commit\n");
         return -1;
     }
+    // 5. Save the serialized text as OBJ_COMMIT
+    if (object_write(OBJ_COMMIT, commit_data, commit_len, commit_id_out) != 0) {
+        fprintf(stderr, "error: failed to write commit object to disk\n");
+        free(commit_data);
+        return -1;
+    }
+    free(commit_data);
 
 }
