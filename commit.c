@@ -201,4 +201,11 @@ int commit_create(const char *message, ObjectID *commit_id_out) {
         fprintf(stderr, "error: failed to build tree from index (is the index empty?)\n");
         return -1;
     }
+    // 2. Get the parent commit hash (if any)
+    if (head_read(&new_commit.parent) == 0) {
+        new_commit.has_parent = 1;
+    } else {
+        new_commit.has_parent = 0;
+    }
+
 }
