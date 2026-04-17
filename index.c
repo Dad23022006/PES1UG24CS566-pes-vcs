@@ -161,7 +161,10 @@ int index_load(Index *index) {
     return 0;
 }
 // Save the index to .pes/index atomically.
-//
+static int compare_index_entries(const void *a, const void *b) {
+    return strcmp(((const IndexEntry *)a)->path, ((const IndexEntry *)b)->path);
+}
+
 // HINTS - Useful functions and syscalls:
 //   - qsort                            : sorting the entries array by path
 //   - fopen (with "w"), fprintf        : writing to the temporary file
