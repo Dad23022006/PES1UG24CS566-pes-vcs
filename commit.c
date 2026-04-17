@@ -196,4 +196,9 @@ int head_update(const ObjectID *new_commit) {
 int commit_create(const char *message, ObjectID *commit_id_out) {
     Commit new_commit;
     memset(&new_commit, 0, sizeof(Commit)); // Clear memory
+    // 1. Write the directory tree and get the root hash
+    if (tree_from_index(&new_commit.tree) != 0) {
+        fprintf(stderr, "error: failed to build tree from index (is the index empty?)\n");
+        return -1;
+    }
 }
