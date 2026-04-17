@@ -174,12 +174,53 @@ static int compare_index_entries(const void *a, const void *b) {
 //
 // Returns 0 on success, -1 on error.
 int index_save(const Index *index) {
-    // TODO: Implement atomic index saving
-    // (See Lab Appendix for logical steps)
-    (void)index;
-    return -1;
-}
+    // FIX: Allocate the massive struct on the heap to prevent stack overflow segfaults
+    Index *sorted_index = malloc(sizeof(Index));
+    if (!sorted_index) return -1;
 
+    *sorted_index = *index;
+    qsort(sorted_index->entries, sorted_index->count, sizeof(IndexEntry), compare_index_entries);
+
+    char temp_path[] = ".pes/index.tmp_XXXXXX";
+    int fd = mkstemp(temp_path);
+    if (fd < 0) { 
+        free(sorted_index); 
+        return -1; 
+    }
+
+    FILE *f = fdopen(fd, "w");
+    if (!f) { 
+        close(fd); 
+        unlink(temp_path); 
+        free(sorted_index); 
+        return -1; 
+    }
+
+    for (int i = 0; i < sorted_index->count; i++) {
+        char hex[HASH_HEX_SIZE + 1];
+        hash_to_hex(&sorted_index->entries[i].hash, hex);
+        fprintf(f, "%06o %s %llu %llu %s\n",
+                sorted_index->entries[i].mode,
+                hex,
+                (unsigned long long)sorted_index->entries[i].mtime_sec,
+                (unsigned long long)sorted_index->entries[i].size,
+                sorted_index->entries[i].path);
+    }
+    
+    // Flush userspace buffers and sync to disk atomically
+    fflush(f);
+    fsync(fileno(f));
+    fclose(f);
+
+    // Free the heap allocation before returning
+    free(sorted_index);
+
+    if (rename(temp_path, ".pes/index") < 0) {
+        unlink(temp_path);
+        return -1;
+    }
+    return 0;
+}
 // Stage a file for the next commit.
 //
 // HINTS - Useful functions and syscalls:
