@@ -197,5 +197,9 @@ static int write_tree_level(IndexEntry *entries, int count, int name_offset, Obj
             i = j; // Move to the next group of entries
         }
     }
+    // Convert your populated Tree struct into a binary buffer
+    void *tree_data;
+    size_t tree_len;
+    if (tree_serialize(&tree, &tree_data, &tree_len) != 0) return -1;
 
 }
