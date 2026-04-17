@@ -177,5 +177,34 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
 // The caller is responsible for calling free(*data_out).
 // Returns 0 on success, -1 on error (file not found, corrupt, etc.).
 int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_t *len_out) {
-    return -1;
+    // Step 1: Build the file path from the hash using object_path()
+    char path[512];
+    object_path(id, path, sizeof(path));
+
+    // Step 2: Open and read the entire file
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+
+    fseek(f, 0, SEEK_END);
+    long file_size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (file_size < 0) { fclose(f); return -1; }
+
+    unsigned char *file_buffer = malloc(file_size);
+    if (!file_buffer) { fclose(f); return -1; }
+
+    if (fread(file_buffer, 1, file_size, f) != (size_t)file_size) {
+        free(file_buffer); fclose(f); return -1;
+    }
+    fclose(f);
+
+    // Step 4: Verify integrity: recompute the SHA-256 of the file contents
+    // and compare to the expected hash (from *id). Return -1 if mismatch.
+    ObjectID computed_id;
+    compute_hash(file_buffer, file_size, &computed_id);
+    if (memcmp(id->hash, computed_id.hash, HASH_SIZE) != 0) {
+        free(file_buffer); return -1;
+    }
+
+    return -1; // Temporary return
 }
