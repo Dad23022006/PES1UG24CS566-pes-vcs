@@ -144,4 +144,58 @@ static int write_tree_level(IndexEntry *entries, int count, int name_offset, Obj
     Tree tree;
     tree.count = 0;
     int i = 0;
+
+    while (i < count && tree.count < MAX_TREE_ENTRIES) {
+        // Find the first '/' in a path to separate directories from files
+        const char *rel_path = entries[i].path + name_offset;
+        char *slash = strchr(rel_path, '/');
+
+        if (!slash) {
+            // It is a flat file at this level. Add directly to tree.
+            TreeEntry *te = &tree.entries[tree.count++];
+            te->mode = entries[i].mode;
+            strcpy(te->name, rel_path);
+            te->hash = entries[i].hash;
+            i++;
+        } else {
+            // It is part of a subdirectory. We need to group all entries with the same prefix.
+            size_t dir_len = slash - rel_path;
+            char dir_name[256];
+            if (dir_len >= sizeof(dir_name)) return -1; // Directory name too long
+            strncpy(dir_name, rel_path, dir_len);
+            dir_name[dir_len] = '\0';
+
+            // Find all entries that belong to this directory
+            int j = i;
+            while (j < count && strncmp(entries[j].path + name_offset, dir_name, dir_len) == 0 &&
+                   entries[j].path[name_offset + dir_len] == '/') {
+                j++;
+            }
+
+            // Recursively write the subtree for this directory
+            ObjectID subtree_id;
+            if (write_tree_level(entries + i, j - i, name_offset + dir_len + 1, &subtree_id) != 0) {
+                return -1; // Error in recursive call
+            }
+
+            // Add the directory entry to the current tree
+            TreeEntry *dir_te = &tree.entries[tree.count++];
+            dir_te->mode = MODE_DIR;
+            strcpy(dir_te->name, dir_name);
+            dir_te->hash = subtree_id;
+            // Recursively build the subtree
+            TreeEntry *te = &tree.entries[tree.count++];
+            te->mode = MODE_DIR;
+            strncpy(te->name, rel_path, dir_len);
+            te->name[dir_len] = '\0';
+            
+            // Recursive helper function call
+            if (write_tree_level(&entries[i], j - i, name_offset + dir_len + 1, &te->hash) != 0) {
+                return -1;
+            }
+            
+            i = j; // Move to the next group of entries
+        }
+    }
+
 }
