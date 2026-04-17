@@ -139,3 +139,9 @@ int tree_from_index(ObjectID *id_out) {
     // Call the recursive helper starting at depth 0
     return write_tree_level(idx.entries, idx.count, 0, id_out);
 }
+
+static int write_tree_level(IndexEntry *entries, int count, int name_offset, ObjectID *out_id) {
+    Tree tree;
+    tree.count = 0;
+    int i = 0;
+}
