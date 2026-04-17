@@ -225,5 +225,11 @@ int commit_create(const char *message, ObjectID *commit_id_out) {
         return -1;
     }
     free(commit_data);
+       // 6. Move the branch pointer to point to your new commit
+    if (head_update(commit_id_out) != 0) {
+        fprintf(stderr, "error: failed to update HEAD reference\n");
+        return -1;
+    }
 
+    return 0; // Success!
 }
